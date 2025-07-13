@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Whack-a-Mole Ultimate</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: linear-gradient(to bottom, #e0f7fa, #b2ebf2);
+      font-family: "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    h1 {
+      margin-top: 20px;
+      font-size: 2.5rem;
+      color: #00796b;
+    }
+    .scoreboard {
+      font-size: 1.2rem;
+      margin: 5px;
+      color: #004d40;
+    }
+    #controls {
+      margin: 10px;
+    }
+    #startBtn, select {
+      margin: 5px;
+      padding: 10px 15px;
+      font-size: 1rem;
+      border: none;
+      border-radius: 6px;
+      background: #00796b;
+      color: white;
+      cursor: pointer;
+    }
+    #startBtn:hover, select:hover {
+      background: #004d40;
+    }
+    .game {
+      display: grid;
+      grid-template-columns: repeat(3, 110px);
+      gap: 15px;
+      justify-content: center;
+      margin: 20px 0 40px 0;
+    }
+    .hole {
+      width: 100px;
+      height: 100px;
+      background: #aed581;
+      border-radius: 50%;
+      position: relative;
+      box-shadow: inset 0 3px 8px rgba(0,0,0,0.2);
+      cursor: pointer;
+      transition: transform 0.2s;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+    }
+    .hole.mole::before {
+      content: '🐹';
+      animation: popUp 0.2s ease-out;
+    }
+    .hole.hit::after {
+      content: '💥';
+      animation: explode 0.3s ease;
+    }
+
+    @keyframes popUp {
+      from { transform: scale(0); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes explode {
+      0%   { transform: scale(0); opacity: 1; }
+      50%  { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(0); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Whack-a-Mole!</h1>
+  <div class="scoreboard" id="score">Score: 0</div>
+  <div class="scoreboard" id="time">Time: 30</div>
+
+  <div id="controls">
+    <select id="difficulty">
+      <option value="easy">Easy</option>
+      <option value="medium" selected>Medium</option>
+      <option value="hard">Hard</option>
+    </select>
+    <button id="startBtn">Start Game</button>
+  </div>
+
+  <div class="game" id="gameGrid"></div>
+
+  <script>
+    const gameGrid = document.getElementById('gameGrid');
+    const scoreDisplay = document.getElementById('score');
+    const timeDisplay = document.getElementById('time');
+    const startBtn = document.getElementById('startBtn');
+    const difficultySelect = document.getElementById('difficulty');
+
+    let score = 0;
+    let timeLeft = 30;
+    let countdown;
+    let gameRunning = false;
+    let activeMoles = new Set();
+    const holes = [];
+
+    let maxMoles = 3;
+    let minSpawnDelay = 300;
+    let maxSpawnDelay = 700;
+    let minMoleTime = 600;
+    let maxMoleTime = 1200;
+
+    for (let i = 0; i < 9; i++) {
+      const hole = document.createElement('div');
+      hole.classList.add('hole');
+      hole.dataset.index = i;
+      gameGrid.appendChild(hole);
+      holes.push(hole);
+    }
+
+    function setDifficulty(level) {
+      if (level === "easy") {
+        maxMoles = 2;
+        minSpawnDelay = 700;
+        maxSpawnDelay = 1000;
+        minMoleTime = 1000;
+        maxMoleTime = 1600;
+      } else if (level === "medium") {
+        maxMoles = 3;
+        minSpawnDelay = 400;
+        maxSpawnDelay = 800;
+        minMoleTime = 800;
+        maxMoleTime = 1300;
+      } else if (level === "hard") {
+        maxMoles = 4;
+        minSpawnDelay = 200;
+        maxSpawnDelay = 500;
+        minMoleTime = 500;
+        maxMoleTime = 900;
+      }
+    }
+
+    function spawnMole() {
+      if (!gameRunning) return;
+
+      if (activeMoles.size < maxMoles) {
+        let available = holes
+          .map((_, i) => i)
+          .filter(i => !activeMoles.has(i));
+        if (available.length > 0) {
+          const index = available[Math.floor(Math.random() * available.length)];
+          const hole = holes[index];
+          activeMoles.add(index);
+          hole.classList.add('mole');
+
+          const moleTime = Math.floor(Math.random() * (maxMoleTime - minMoleTime)) + minMoleTime;
+          setTimeout(() => {
+            hole.classList.remove('mole');
+            activeMoles.delete(index);
+          }, moleTime);
+        }
+      }
+
+      const nextSpawn = Math.floor(Math.random() * (maxSpawnDelay - minSpawnDelay)) + minSpawnDelay;
+      setTimeout(spawnMole, nextSpawn);
+    }
+
+    function startGame() {
+      score = 0;
+      timeLeft = 30;
+      gameRunning = true;
+      scoreDisplay.textContent = 'Score: 0';
+      timeDisplay.textContent = 'Time: 30';
+      activeMoles.clear();
+      holes.forEach(h => h.classList.remove('mole', 'hit'));
+
+      setDifficulty(difficultySelect.value);
+
+      spawnMole();
+
+      clearInterval(countdown);
+      countdown = setInterval(() => {
+        timeLeft--;
+        timeDisplay.textContent = `Time: ${timeLeft}`;
+        if (timeLeft <= 0) {
+          gameRunning = false;
+          clearInterval(countdown);
+          holes.forEach(h => h.classList.remove('mole', 'hit'));
+          alert(`Time's up! Final Score: ${score}`);
+        }
+      }, 1000);
+    }
+
+    gameGrid.addEventListener('click', (e) => {
+      if (!e.target.classList.contains('hole')) return;
+      const hole = e.target;
+      const index = parseInt(hole.dataset.index);
+      if (hole.classList.contains('mole')) {
+        score++;
+        scoreDisplay.textContent = `Score: ${score}`;
+        hole.classList.add('hit');
+        hole.classList.remove('mole');
+        activeMoles.delete(index);
+        setTimeout(() => hole.classList.remove('hit'), 300);
+      }
+    });
+
+    startBtn.addEventListener('click', startGame);
+  </script>
+</body>
+</html>
